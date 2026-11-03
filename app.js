@@ -153,7 +153,8 @@ async function removePdfFile(fileName) {
 
 // ========== 首页列表 ==========
 async function loadList() {
-  const list = await getAllRecords();
+  const all = await getAllRecords();
+  const list = all.filter((r) => !r.deleted); // 过滤已删除（同步墓碑）
   list.sort((a, b) => (b.activityDate || '').localeCompare(a.activityDate || '') || b.createAt - a.createAt);
 
   let total = 0;
@@ -339,6 +340,7 @@ async function saveRecord() {
   await addRecord(rec);
   resetForm();
   showPage('page-home');
+  scheduleSync(); // 保存后自动同步到云端
 }
 
 function resetForm() {
@@ -364,14 +366,19 @@ async function deleteRecord() {
   if (rec.pdfFileName && dirHandle) {
     await removePdfFile(rec.pdfFileName);
   }
-  await deleteRecordById(currentDetailId);
+  // 删除改为打墓碑标记（保留记录骨架），供多设备同步删除
+  rec.deleted = true;
+  rec.deleteAt = Date.now();
+  await addRecord(rec);
   currentDetailId = null;
   showPage('page-home');
+  scheduleSync(); // 删除后自动同步到云端
 }
 
 // ========== 备份 ==========
 async function exportBackup() {
-  const list = await getAllRecords();
+  const all = await getAllRecords();
+  const list = all.filter((r) => !r.deleted); // 导出时排除已删除的墓碑记录
   if (list.length === 0) { alert('暂无记录可导出。'); return; }
   const blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -406,7 +413,9 @@ async function importBackup(evt) {
         remark: r.remark || '',
         pdfFileName: r.pdfFileName || null,
         createAt: r.createAt || Date.now(),
-        updateAt: Date.now()
+        updateAt: r.updateAt || Date.now(),
+        deleted: r.deleted || false,
+        deleteAt: r.deleteAt || null
       });
       count++;
     }
@@ -429,6 +438,7 @@ function init() {
   }
   loadDirHandleFromDB();
   loadList();
+  initSync(); // 云同步：刷新状态并静默拉取
 }
 
 document.addEventListener('DOMContentLoaded', init);

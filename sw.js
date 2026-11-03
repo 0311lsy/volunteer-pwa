@@ -1,10 +1,11 @@
 'use strict';
-const CACHE_NAME = 'volunteer-pwa-v1';
+const CACHE_NAME = 'volunteer-pwa-v2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './db.js',
+  './sync.js',
   './app.js',
   './icons/icon-192.png',
   './icons/icon-512.png'
