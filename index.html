@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>志愿台账</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Cpath d='M32 50c-13-9-22-18-22-28a12 12 0 0 1 22-5 12 12 0 0 1 22 5c0 10-9 19-22 28z' fill='white'/%3E%3Ccircle cx='32' cy='26' r='6' fill='%232563eb'/%3E%3C/svg%3E" />
+<meta name="theme-color" content="#2563eb" />
+<meta name="description" content="个人志愿服务记录台账，支持本地保存志愿时长与 PDF 文件" />
+<style>
+  :root {
+    --blue-600: #2563eb;
+    --blue-50: #eff6ff;
+    --slate-800: #1e293b;
+    --slate-600: #475569;
+    --slate-500: #64748b;
+    --slate-400: #94a3b8;
+    --slate-200: #e2e8f0;
+    --slate-100: #f1f5f9;
+    --red-600: #dc2626;
+    --green-600: #16a34a;
+    --green-50: #f0fdf4;
+    --green-200: #bbf7d0;
+    --amber-50: #fffbeb;
+    --amber-200: #fde68a;
+    --amber-800: #92400e;
+    --bg: #f8fafc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: #eef2f7; }
+  body {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--slate-800);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 16px 16px 48px;
+  }
+  .page { display: none; }
+  .page.active { display: block; animation: fadein .15s ease; }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .header-title { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; }
+  .header-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--slate-400); }
+  .header-dot.ok { background: var(--green-600); }
+  .header-dot.warn { background: #f59e0b; }
+
+  .warn {
+    display: none;
+    background: var(--amber-50);
+    border: 1px solid var(--amber-200);
+    color: var(--amber-800);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+
+  .stat-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .stat-value { font-size: 34px; font-weight: 800; color: var(--blue-600); }
+  .stat-label { font-size: 13px; color: var(--slate-500); }
+  .stat-sub { font-size: 12px; color: var(--slate-400); margin-top: 2px; }
+  .stat-right { text-align: right; }
+  .stat-right .stat-value { font-size: 26px; }
+
+  .folder-card { border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+  .folder-card.ok { background: var(--green-50); border: 1px solid var(--green-200); }
+  .folder-card.warning { background: var(--amber-50); border: 1px solid var(--amber-200); }
+  .folder-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .folder-title { font-size: 14px; font-weight: 600; }
+  .folder-sub { font-size: 12px; color: var(--slate-500); margin-top: 2px; }
+
+  .btn-row { display: flex; gap: 10px; margin-bottom: 18px; }
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 13px 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 46px;
+    font-family: inherit;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn-blue { background: var(--blue-600); color: #fff; }
+  .btn-slate { background: var(--slate-200); color: var(--slate-600); }
+  .btn-danger { background: #fee2e2; color: var(--red-600); }
+  .btn-sm { width: auto; padding: 8px 14px; font-size: 13px; min-height: 36px; flex-shrink: 0; }
+  .btn-outline { background: #fff; border: 1px solid var(--slate-200); color: var(--slate-600); }
+
+  .record-item {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  .record-item:active { background: var(--slate-100); }
+  .record-title { font-weight: 600; font-size: 15px; }
+  .record-meta { font-size: 13px; color: var(--slate-500); margin-top: 4px; }
+  .record-pdf { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--green-600); margin-top: 8px; }
+  .empty {
+    text-align: center;
+    color: var(--slate-400);
+    padding: 48px 16px;
+    font-size: 14px;
+  }
+
+  .form-item { margin-bottom: 14px; }
+  .form-item label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  input[type="text"], input[type="date"], input[type="number"], textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 16px;
+    background: #fff;
+    color: var(--slate-800);
+    font-family: inherit;
+  }
+  input:focus, textarea:focus { outline: 2px solid #bfdbfe; border-color: var(--blue-600); }
+  input[type="file"] {
+    width: 100%;
+    font-size: 14px;
+    padding: 10px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--slate-600);
+  }
+  .pdf-tip { font-size: 12px; color: var(--slate-400); margin-top: 6px; }
+  .pdf-tip.has { color: var(--green-600); }
+
+  .detail-body { background: #fff; border-radius: 14px; padding: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.06); }
+  .detail-row { display: flex; padding: 8px 0; border-bottom: 1px solid var(--slate-100); }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { width: 84px; flex-shrink: 0; color: var(--slate-500); font-size: 14px; }
+  .detail-value { flex: 1; font-size: 14px; word-break: break-all; }
+  .pdf-box {
+    background: var(--green-50);
+    border: 1px solid var(--green-200);
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 12px;
+  }
+  .pdf-name { font-size: 14px; font-weight: 600; color: var(--green-600); word-break: break-all; }
+  .pdf-loc { font-size: 12px; color: var(--slate-500); margin-top: 4px; }
+
+  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 14px; }
+  .btn-row-bottom { display: flex; gap: 10px; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 21c-5-3.6-8.5-6.9-8.5-11A4.5 4.5 0 0 1 12 6.5 4.5 4.5 0 0 1 20.5 10c0 4.1-3.5 7.4-8.5 11z" fill="#2563eb"/>
+      <circle cx="12" cy="10" r="2.2" fill="#fff"/>
+    </svg>
+    志愿台账
+  </div>
+  <div id="headerDot" class="header-dot" title="存储文件夹状态"></div>
+</div>
+
+<div id="fsWarn" class="warn">当前浏览器不支持 File System Access API，无法把 PDF 直接写入本地文件夹。请使用电脑版 Chrome / Edge，或安卓 Chrome 打开本页。</div>
+
+<!-- ========== 首页 ========== -->
+<div id="page-home" class="page active">
+  <div class="stat-card">
+    <div>
+      <div class="stat-label">累计志愿时长</div>
+      <div class="stat-value"><span id="totalHours">0</span><span style="font-size:16px;font-weight:600;color:var(--slate-400)"> 小时</span></div>
+    </div>
+    <div class="stat-right">
+      <div class="stat-label">记录条数</div>
+      <div class="stat-value"><span id="recordCount">0</span></div>
+    </div>
+  </div>
+
+  <div id="folderStatus"></div>
+
+  <div class="btn-row">
+    <button onclick="openNewForm()" class="btn btn-blue">新增记录</button>
+  </div>
+  <div class="btn-row">
+    <button onclick="exportBackup()" class="btn btn-slate">导出备份</button>
+    <label class="btn btn-outline" style="cursor:pointer">
+      导入备份
+      <input type="file" id="importFile" accept=".json,application/json" onchange="importBackup(event)" style="display:none" />
+    </label>
+  </div>
+
+  <div id="recordList"></div>
+</div>
+
+<!-- ========== 新增 / 编辑 ========== -->
+<div id="page-form" class="page">
+  <h2 class="page-title" id="formTitle">新增记录</h2>
+  <div class="form-item">
+    <label for="activityName">活动名称 *</label>
+    <input type="text" id="activityName" placeholder="如：社区敬老院志愿服务" />
+  </div>
+  <div class="form-item">
+    <label for="activityDate">活动日期 *</label>
+    <input type="date" id="activityDate" />
+  </div>
+  <div class="form-item">
+    <label for="location">地点</label>
+    <input type="text" id="location" placeholder="如：西安市碑林区" />
+  </div>
+  <div class="form-item">
+    <label for="content">服务内容</label>
+    <textarea id="content" rows="3" placeholder="简单描述你做了什么"></textarea>
+  </div>
+  <div class="form-item">
+    <label for="hours">志愿时长（小时）*</label>
+    <input type="number" id="hours" step="0.5" min="0" placeholder="如：3.5" />
+  </div>
+  <div class="form-item">
+    <label for="organization">主办单位</label>
+    <input type="text" id="organization" placeholder="如：XX 志愿者协会" />
+  </div>
+  <div class="form-item">
+    <label for="remark">备注</label>
+    <textarea id="remark" rows="2" placeholder="可选"></textarea>
+  </div>
+  <div class="form-item">
+    <label for="pdfFile">PDF 证明文件（可选）</label>
+    <input type="file" id="pdfFile" accept="application/pdf,.pdf" onchange="onPdfChange(event)" />
+    <div class="pdf-tip" id="pdfTip">未选择文件，保存时写入本地文件夹</div>
+  </div>
+  <div class="btn-row">
+    <button onclick="saveRecord()" class="btn btn-blue">保存</button>
+    <button onclick="showPage('page-home')" class="btn btn-slate">取消</button>
+  </div>
+</div>
+
+<!-- ========== 详情 ========== -->
+<div id="page-detail" class="page">
+  <h2 class="page-title">记录详情</h2>
+  <div id="detailBody" class="detail-body"></div>
+  <div id="pdfSection"></div>
+  <div class="btn-row-bottom">
+    <button onclick="editRecord()" class="btn btn-slate">编辑</button>
+    <button onclick="deleteRecord()" class="btn btn-danger">删除</button>
+  </div>
+  <div style="margin-top:10px">
+    <button onclick="showPage('page-home')" class="btn btn-outline">返回</button>
+  </div>
+</div>
+
+<script src="db.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
