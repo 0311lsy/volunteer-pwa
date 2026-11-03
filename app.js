@@ -152,10 +152,18 @@ async function removePdfFile(fileName) {
 }
 
 // ========== 首页列表 ==========
+// 排序：活动日期从最新到最旧；同日期按录入时间从新到旧
+function sortRecordsDesc(list) {
+  list.sort((a, b) =>
+    (b.activityDate || '').localeCompare(a.activityDate || '') ||
+    (Number(b.createAt) || 0) - (Number(a.createAt) || 0)
+  );
+}
+
 async function loadList() {
   const all = await getAllRecords();
   const list = all.filter((r) => !r.deleted); // 过滤已删除（同步墓碑）
-  list.sort((a, b) => (b.activityDate || '').localeCompare(a.activityDate || '') || b.createAt - a.createAt);
+  sortRecordsDesc(list);
 
   let total = 0;
   list.forEach((r) => { total += Number(r.hours) || 0; });
@@ -390,6 +398,45 @@ async function exportBackup() {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
   alert('已导出文字记录备份。\n注意：PDF 文件本身在本地文件夹中，请连同文件夹一起备份（复制文件夹即可）。');
+}
+
+// ========== 导出 Excel ==========
+async function exportExcel() {
+  const all = await getAllRecords();
+  const list = all.filter((r) => !r.deleted);
+  if (list.length === 0) { alert('暂无记录可导出。'); return; }
+  sortRecordsDesc(list); // 与首页一致：日期从最新到最旧
+
+  const rows = [['活动名称', '活动日期', '地点', '服务内容', '志愿时长（小时）', '主办单位', '备注']];
+  list.forEach((r) => {
+    rows.push([
+      r.activityName || '',
+      r.activityDate || '',
+      r.location || '',
+      r.content || '',
+      Number(r.hours) || 0,
+      r.organization || '',
+      r.remark || ''
+    ]);
+  });
+  // 合计行
+  const total = Math.round(list.reduce((s, r) => s + (Number(r.hours) || 0), 0) * 10) / 10;
+  rows.push(['合计', '', '', '', total, '', '']);
+
+  try {
+    const data = makeXlsx(rows, '志愿记录');
+    const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '志愿记录_' + timestamp() + '.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (e) {
+    alert('导出 Excel 失败：' + (e.message || e));
+  }
 }
 
 async function importBackup(evt) {
